@@ -35,12 +35,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libgtk-3-dev libwebkit2gtk-4.0-dev \
-            libappindicator3-dev librsvg2-dev patchelf
+            libappindicator3-dev librsvg2-dev patchelf file coreutils
 
       - uses: dtolnay/rust-toolchain@stable
-
-      # If you use Yarn Berry and Corepack, you can enable it:
-      # - run: corepack enable
 
       - name: Install JS deps
         run: yarn --immutable
@@ -56,7 +53,7 @@ jobs:
         with:
           projectPath: packages/app
           tauriScript: yarn tauri
-          # IMPORTANT: no extra "build" token here; the action runs `tauri build` already.
+          # IMPORTANT: no extra "build" token; the action runs `tauri build` already.
           # Compact JSON to avoid quoting issues.
           args: >-
             --verbose
@@ -65,15 +62,46 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=6000
 
-      # Upload the portable binaries from target/**/release (works for both OSes)
-      # Using manual globs so we don't depend on action outputs.
+      # Stage ONLY the final executable per-OS and archive it with a clean name
+      - name: Stage portable binary (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          # pick the newest .exe from Tauri release outputs
+          $exe = Get-ChildItem -Path "packages\app\src-tauri\target" -Recurse -Filter *.exe `
+                  | Where-Object { $_.FullName -match '\\release\\' } `
+                  | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $exe) { throw "No portable .exe found under src-tauri\target\*\release" }
+          Copy-Item $exe.FullName dist\rivet-windows-latest.exe -Force
+          Compress-Archive -Path dist\rivet-windows-latest.exe -DestinationPath dist\rivet-windows-latest.zip -Force
+
+      - name: Stage portable binary (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Find ELF executable(s) under release; pick the largest one (usually the app)
+          bin="$(find packages/app/src-tauri/target -type f -path '*/release/*' \
+                   -exec sh -c 'file -b "$1" | grep -q "ELF" && printf "%s %s\n" "$(stat -c%s "$1")" "$1"' sh {} \; \
+                   | sort -nr | head -n1 | awk '{ $1=""; sub(/^ /,""); print }')"
+          if [ -z "${bin:-}" ] || [ ! -f "$bin" ]; then
+            echo "No ELF executable found under src-tauri/target/**/release" >&2
+            exit 1
+          fi
+          cp -v "$bin" dist/rivet-ubuntu-22.04
+          tar -czf dist/rivet-ubuntu-22.04.tar.gz -C dist rivet-ubuntu-22.04
+
       - name: Upload portable artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rivet-${{ matrix.platform }}
           path: |
-            packages/app/src-tauri/target/**/release/*.exe
-            packages/app/src-tauri/target/**/release/*
+            dist/rivet-windows-latest.zip
+            dist/rivet-ubuntu-22.04.tar.gz
           if-no-files-found: error
           retention-days: 30
           compression-level: 6
@@ -93,7 +121,7 @@ jobs:
           echo "Collected files:"
           find _artifacts -type f -maxdepth 6 -print
 
-      # Nightly prerelease for main/manual runs (same tag every time → updated assets)
+      # Nightly prerelease for main/manual runs (same tag each time → updated assets)
       - name: Publish Nightly prerelease (portable)
         if: ${{ !startsWith(github.ref, 'refs/tags/app-v') }}
         uses: softprops/action-gh-release@v2
@@ -102,9 +130,11 @@ jobs:
           name: Nightly
           prerelease: true
           draft: false
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
           generate_release_notes: false
-          files: _artifacts/**/* 
+          files: |
+            _artifacts/**/rivet-windows-latest.zip
+            _artifacts/**/rivet-ubuntu-22.04.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -117,6 +147,9 @@ jobs:
           name: Rivet IDE ${{ github.ref_name }}
           body: |
             Portable builds (no installer). Download the asset for your platform.
-          files: _artifacts/**/*
+          fail_on_unmatched_files: true
+          files: |
+            _artifacts/**/rivet-windows-latest.zip
+            _artifacts/**/rivet-ubuntu-22.04.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
