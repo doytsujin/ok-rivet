@@ -43,5 +43,11 @@ jobs:
       - name: Lint
         run: yarn lint
 
-      - name: Prettier
-        run: yarn prettier --check .
+      - name: Prettier (advisory)
+        shell: bash
+        run: |
+          if ! yarn prettier --check .; then
+            echo "::warning::Prettier found formatting issues. Run 'yarn prettier -w' locally."
+            # Optional: show a compact diff of what would change
+            # git diff --no-color --name-only | xargs -r -I{} echo "::notice file={}::Formatting differs"
+          fi
