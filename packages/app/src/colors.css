@@ -180,3 +180,44 @@
   /* Gradient */
   --grey-subtle-accent: rgba(165, 95, 255, 0.02);
 }
+
+/* AstraZeneca-style purple theme */
+.app.theme-purple {
+  /* Primary (AZ purple) */
+  --primary: #830051;              /* deep purple */
+  --primary-text: #830051;
+  --primary-dark: #5b003a;         /* ~20% darker */
+  --primary-light: #cc3b88;        /* lighter companion */
+  --primary-5percent: rgba(131,0,81,0.08);
+
+  /* Subtle dividers / tertiary fills tuned warm-neutral */
+  --tertiary: #e9e4ec;
+  --tertiary-light: rgba(233,228,236,0.45);
+
+  /* Accent (AZ gold) */
+  --accent: #efab00;               /* golden yellow */
+  --accent-dark: #b88000;
+  --accent-light: #ffd166;
+
+  /* States (kept readable on light UI) */
+  --success: #10b981;
+  --success-dark: #059669;
+  --success-light: #34d399;
+
+  --error: #ef4444;
+  --error-dark: #dc2626;
+  --error-light: #f87171;
+
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  --warning-light: #fbbf24;
+
+  /* Shadows & very subtle background noise */
+  --shadow-primary: rgba(131,0,81,0.22);
+  --shadow-primary-bright: rgba(131,0,81,0.40);
+  --grey-subtle-accent: rgba(131,0,81,0.03);
+
+  /* Ensure text contrasts on purple/gold */
+  --foreground-on-primary: #ffffff;
+}
+
