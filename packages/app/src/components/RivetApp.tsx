@@ -41,7 +41,7 @@ const styles = css`
 `;
 
 setGlobalTheme({
-  colorMode: 'dark',
+  colorMode: 'light',
 });
 
 export const RivetApp: FC = () => {
@@ -69,7 +69,7 @@ export const RivetApp: FC = () => {
   useWindowTitle();
 
   return (
-    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-default')} css={styles}>
+    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-purple')} css={styles}>
       {noProjectOpen ? (
         <>
           <NoProject />
