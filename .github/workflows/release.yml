@@ -59,7 +59,7 @@ jobs:
           tauriScript: yarn tauri
           # Force portable binaries and disable updater (no keys needed)
           args: >-
-            build --verbose
+            --verbose
             --config '{ "tauri": { "updater": { "active": false }, "bundle": { "targets": ["app"] } } }'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
