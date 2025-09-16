@@ -1,4 +1,4 @@
-name: Release
+name: Release (Portable)
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
           node-version: "20.4.x"
           cache: "yarn"
 
-      # Linux deps for Tauri
+      # Linux GUI build deps for Tauri (still required even for portable "app" target)
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -36,13 +36,11 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.0-dev \
             libappindicator3-dev librsvg2-dev patchelf
 
-      # Windows deps for Tauri installer
-      - name: Install Windows build deps
-        if: matrix.platform == 'windows-latest'
-        run: choco install nsis -y
-
-      # Rust for Tauri backend
+      # Rust toolchain for Tauri backend
       - uses: dtolnay/rust-toolchain@stable
+
+      # If you use Yarn Berry and Corepack, uncomment:
+      # - run: corepack enable
 
       - name: Install JS deps
         run: yarn --immutable
@@ -52,32 +50,42 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6000
 
-      # Build the desktop app
-      # - On tag refs (app-v*), this will also create/update a GitHub Release and upload assets
-      # - On normal runs, it just builds the app; we upload artifacts in the next step
-      - name: Build Tauri App
+      # Build Tauri app as **portable executables** and **disable updater**
+      - name: Build Tauri App (portable, no updater)
         id: tauri
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: packages/app
           tauriScript: yarn tauri
-          tagName: app-v__VERSION__
-          releaseName: 'Rivet IDE v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: ${{ startsWith(github.ref, 'refs/tags/app-v') }}
-          prerelease: false
-          updaterJsonKeepUniversal: true
-          args: --verbose
+          # Force portable binaries and disable updater (no keys needed)
+          args: >-
+            build --verbose
+            --config '{ "tauri": { "updater": { "active": false }, "bundle": { "targets": ["app"] } } }'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=6000
 
-      # Always upload the built bundles as run artifacts (handy for main & manual runs).
-      # Tauri bundles end up under packages/app/src-tauri/target/**/bundle/
-      - name: Upload build artifacts
+      # Upload the raw executables from target/**/release (works for both OSes)
+      - name: Upload portable artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rivet-tauri-${{ matrix.platform }}
+          name: rivet-tauri-${{ matrix.platform }}-portable
           path: |
-            packages/app/src-tauri/target/**/bundle/**/*
+            packages/app/src-tauri/target/**/release/*.exe
+            packages/app/src-tauri/target/**/release/*
           if-no-files-found: warn
+
+      # On tag builds (e.g., app-v1.2.3), create a GitHub Release and attach the same artifacts
+      - name: Publish GitHub Release (attach portable binaries)
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Rivet IDE ${{ github.ref_name }}
+          body: |
+            Portable builds (no installer). Download the asset for your platform.
+          files: |
+            packages/app/src-tauri/target/**/release/*.exe
+            packages/app/src-tauri/target/**/release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
