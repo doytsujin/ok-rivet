@@ -69,7 +69,7 @@ export const RivetApp: FC = () => {
   useWindowTitle();
 
   return (
-    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-purple')} css={styles}>
+    <div className={clsx('app', theme ? `theme-${theme}` : 'theme-grapefruit')} css={styles}>
       {noProjectOpen ? (
         <>
           <NoProject />
