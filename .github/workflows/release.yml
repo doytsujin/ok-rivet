@@ -52,7 +52,6 @@ jobs:
 
       # Build ONLY portable executables and DISABLE updater (no signing keys needed)
       - name: Build Tauri App (portable, no updater)
-        id: tauri
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: packages/app
@@ -66,14 +65,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=6000
 
-      # Upload exactly what Tauri produced (uses action's artifactPaths output)
-      - name: Upload build artifacts (portable)
+      # Upload the portable binaries from target/**/release (works for both OSes)
+      # Using manual globs so we don't depend on action outputs.
+      - name: Upload portable artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rivet-${{ matrix.platform }}
-          path: ${{ steps.tauri.outputs.artifactPaths }}
+          path: |
+            packages/app/src-tauri/target/**/release/*.exe
+            packages/app/src-tauri/target/**/release/*
           if-no-files-found: error
           retention-days: 30
+          compression-level: 6
 
   publish:
     name: Publish release assets
@@ -88,9 +91,9 @@ jobs:
       - name: List gathered files
         run: |
           echo "Collected files:"
-          find _artifacts -type f -maxdepth 5 -print
+          find _artifacts -type f -maxdepth 6 -print
 
-      # Nightly prerelease for main/manual runs (overwrites/updates same tag)
+      # Nightly prerelease for main/manual runs (same tag every time → updated assets)
       - name: Publish Nightly prerelease (portable)
         if: ${{ !startsWith(github.ref, 'refs/tags/app-v') }}
         uses: softprops/action-gh-release@v2
@@ -101,7 +104,7 @@ jobs:
           draft: false
           fail_on_unmatched_files: false
           generate_release_notes: false
-          files: _artifacts/**/*
+          files: _artifacts/**/* 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
